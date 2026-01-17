@@ -9,13 +9,14 @@
       --orange: #ff8c00;
       --black: #000000;
       --white: #ffffff;
+      --soft-gray: #f4f4f4;
     }
 
     body {
-      font-family: Arial, Helvetica, sans-serif;
-      background: var(--white);
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: linear-gradient(180deg, #ffffff, #f6f6f6);
       margin: 0;
-      padding: 20px;
+      padding: 30px;
       color: var(--black);
     }
 
@@ -40,22 +41,20 @@
     }
 
     .die {
-      width: 70px;
-      height: 70px;
+      width: 72px;
+      height: 72px;
       border: 3px solid var(--black);
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 32px;
-      font-weight: bold;
-      cursor: pointer;
+      border-radius: 14px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
       background: var(--white);
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
     }
 
     .die.held {
       background: var(--orange);
-      color: var(--white);
     }
 
     button {
@@ -105,12 +104,29 @@
       font-weight: bold;
       background: #fafafa;
     }
+  
+    @media (max-width: 600px) {
+      body { padding: 12px; }
+      .game { padding: 15px; }
+      .dice-row { gap: 10px; }
+      .die { width: 56px; height: 56px; }
+      table { font-size: 14px; }
+      button { width: 100%; margin-top: 8px; }
+    }
   </style>
 </head>
 <body>
   <h1>Yahtzee</h1>
 
   <div class="game">
+    <div id="gameOverModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); align-items:center; justify-content:center;">
+      <div style="background:white; border:3px solid black; border-radius:14px; padding:30px; text-align:center; max-width:300px;">
+        <h2 style="color:#ff8c00; margin-top:0;">Game Over</h2>
+        <p style="font-size:18px;">Final Score:</p>
+        <p id="finalScore" style="font-size:36px; font-weight:bold; margin:10px 0;"></p>
+        <button onclick="location.reload()">Play Again</button>
+      </div>
+    </div>
     <div class="dice-row" id="dice"></div>
 
     <div class="controls">
@@ -124,6 +140,7 @@
       <tbody></tbody>
       <tfoot>
         <tr class="total"><td>Total</td><td id="totalScore">0</td></tr>
+        <tr><td colspan="2" id="highScore" style="font-weight:bold;">High Score: 0</td></tr>
       </tfoot>
     </table>
   </div>
@@ -151,12 +168,37 @@
       dice.forEach((val, i) => {
         const d = document.createElement("div");
         d.className = "die" + (held[i] ? " held" : "");
-        d.textContent = val;
         d.onclick = () => {
           if (rollsLeft < 3) {
             held[i] = !held[i];
             renderDice();
           }
+        };
+
+        const pipPositions = {
+          1: [4],
+          2: [0, 8],
+          3: [0, 4, 8],
+          4: [0, 2, 6, 8],
+          5: [0, 2, 4, 6, 8],
+          6: [0, 2, 3, 5, 6, 8]
+        };
+
+        for (let j = 0; j < 9; j++) {
+          const pip = document.createElement("div");
+          if (pipPositions[val].includes(j)) {
+            pip.style.width = "12px";
+            pip.style.height = "12px";
+            pip.style.borderRadius = "50%";
+            pip.style.background = held[i] ? "white" : "black";
+            pip.style.margin = "auto";
+          }
+          d.appendChild(pip);
+        }
+
+        diceEl.appendChild(d);
+      });
+    }
         };
         diceEl.appendChild(d);
       });
@@ -221,9 +263,29 @@
       updateTotal();
     }
 
+    function updateHighScore() {
+      const high = localStorage.getItem("yahtzeeHighScore") || 0;
+      document.getElementById("highScore").textContent = `High Score: ${high}`;
+    }
+
     function updateTotal() {
       const total = Object.values(used).reduce((a, b) => a + b, 0);
       totalScoreEl.textContent = total;
+
+      if (Object.keys(used).length === categories.length) {
+        endGame(total);
+      }
+    }
+
+    function endGame(score) {
+      const storedHigh = Number(localStorage.getItem("yahtzeeHighScore") || 0);
+      if (score > storedHigh) {
+        localStorage.setItem("yahtzeeHighScore", score);
+      }
+
+      document.getElementById("finalScore").textContent = score;
+      document.getElementById("gameOverModal").style.display = "flex";
+      updateHighScore();
     }
 
     function resetTurn() {
@@ -232,6 +294,7 @@
       rollBtn.disabled = false;
       rollBtn.textContent = "Roll Dice (3)";
       rollDice();
+    updateHighScore();
     }
 
     rollBtn.onclick = rollDice;
